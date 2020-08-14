@@ -1,0 +1,56 @@
+#!/bin/sh
+
+AccessKeyId='KeyId' # Your Aliyun Access Key ID
+Action='UpdateDomainRecord'
+Format='JSON'
+RR='ddns' # Resolves ddns.example.com here; modify if needed
+RecordId='123456789' # ID of the record to be updated
+SignatureMethod='HMAC-SHA1'
+SignatureNonce=$(date +"%Y%m%d%H%M%S")
+SignatureVersion='1.0'
+Timestamp=$(date --utc +"%Y-%m-%dT%H%%253A%M%%253A%SZ")
+Type='A'
+Value=${1}
+Version='2015-01-09'
+
+Key='KeySecret&' # Your Aliyun Access Key Secret plus a "&" character
+
+StringToSign="GET&%2F&\
+AccessKeyId%3D${AccessKeyId}%26\
+Action%3D${Action}%26\
+Format%3D${Format}%26\
+RR%3D${RR}%26\
+RecordId%3D${RecordId}%26\
+SignatureMethod%3D${SignatureMethod}%26\
+SignatureNonce%3D${SignatureNonce}%26\
+SignatureVersion%3D${SignatureVersion}%26\
+Timestamp%3D${Timestamp}%26\
+Type%3D${Type}%26\
+Value%3D${Value}%26\
+Version%3D${Version}"
+
+Signature=$(echo -n ${StringToSign} | openssl dgst -sha1 -hmac ${Key} -binary | openssl enc -base64)
+Signature=$(echo -n ${Signature} | sed "s/+/%2B/g" | sed "s/\//%2F/g" | sed "s/=/%3D/g")
+
+Timestamp=$(echo -n ${Timestamp} | sed "s/%253A/:/g")
+
+url="https://alidns.aliyuncs.com/?\
+AccessKeyId=${AccessKeyId}&\
+Action=${Action}&\
+Format=${Format}&\
+RecordId=${RecordId}&\
+RR=${RR}&\
+Signature=${Signature}&\
+SignatureMethod=${SignatureMethod}&\
+SignatureNonce=${SignatureNonce}&\
+SignatureVersion=${SignatureVersion}&\
+Timestamp=${Timestamp}&\
+Type=${Type}&\
+Value=${Value}&\
+Version=${Version}"
+
+if [ $(curl -s -o /dev/null -w %{http_code} -X GET ${url}) -eq 200 ]; then
+    /sbin/ddns_custom_updated 1
+else
+    /sbin/ddns_custom_updated 0
+fi
