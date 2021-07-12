@@ -1,5 +1,7 @@
 #!/bin/sh
 
+OutputFile=/tmp/ddns_output.json
+
 AccessKeyId='KeyId' # Your Aliyun Access Key ID
 Action='UpdateDomainRecord'
 Format='JSON'
@@ -49,7 +51,14 @@ Type=${Type}&\
 Value=${Value}&\
 Version=${Version}"
 
-if [ $(curl -s -o /dev/null -w %{http_code} -X GET ${url}) -eq 200 ]; then
+Result=$(curl -s -o ${OutputFile} -w %{http_code} -X GET ${url})
+if [ ${Result} -eq 200 ]; then
+    /sbin/ddns_custom_updated 1
+    exit
+fi
+
+Duplicate=$(grep -c DomainRecordDuplicate ${OutputFile})
+if [ ${Duplicate} -gt 0 ]; then
     /sbin/ddns_custom_updated 1
 else
     /sbin/ddns_custom_updated 0
